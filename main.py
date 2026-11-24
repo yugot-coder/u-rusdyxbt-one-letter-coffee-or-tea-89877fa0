@@ -39,6 +39,7 @@ because the gate requires /output/entry.txt to be exactly 1 character.
 """
 
 import os
+import sys
 
 LETTER = "A"
 
@@ -73,12 +74,34 @@ def main() -> None:
     path = os.path.join(out_dir, "entry.txt")
     with open(path, "w", encoding="utf-8", newline="") as f:
         f.write(LETTER)
-    # Read-back validation: the gate is exactly 1 character, so the
-    # file must be exactly one byte holding one letter A-Z, and it
-    # must be the same letter we intended to write.
+    # Read-back verification: the gate is exactly 1 character, so the
+    # file must be exactly one byte holding the intended letter.
+    # This is an explicit check (not assert, which python -O strips):
+    # re-read the file, verify its exact byte length and its exact
+    # contents against the intended letter, and exit non-zero on
+    # any mismatch.
     with open(path, "rb") as f:
         data = f.read()
-    assert validate_letter(data) == LETTER
+    expected = LETTER.encode("ascii")
+    if len(data) != 1:
+        print(
+            f"error: entry.txt must be exactly 1 byte, got {len(data)}",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    if data != expected:
+        print(
+            f"error: entry.txt read-back mismatch: "
+            f"expected {expected!r}, got {data!r}",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    # Belt-and-braces: the read-back byte must also pass the A-Z guard.
+    try:
+        validate_letter(data)
+    except AssertionError as exc:
+        print(f"error: entry.txt read-back invalid: {exc}", file=sys.stderr)
+        sys.exit(1)
     print(LETTER)
 
 
